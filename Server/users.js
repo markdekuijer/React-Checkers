@@ -30,16 +30,16 @@ const removeUser = (id) => {
 }
 
 const createRoom = (id, roomName) => {
-    console.log(`Creating room!`);
-    console.log(`Socket id is ${id}`);
-    console.log(`Roomname is ${roomName}`);
-    var user = users.find((user) => user.id === id);
+    var roomOwner = users.filter((user) => user.room === roomName);
 
-    user.room = roomName;
-
-    console.log(users);
-
-    return user;
+    if(roomOwner === undefined || roomOwner.length === 0){
+        var user = users.find((user) => user.id === id);
+        user.room = roomName;
+        return user;
+    } else {
+        return false;
+    }
+    
 }
 
 const joinRoom = (id, roomName) => {

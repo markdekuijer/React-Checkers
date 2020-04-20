@@ -35,7 +35,6 @@ const initialState = {
 }
 
 
-
 var lastSelectedCell;
 var highlightedCells = [];
 var hittableCells = [];
@@ -44,6 +43,12 @@ var killedSomeone;
 var tempBoard;
 
 class Checkers extends React.Component {    
+
+    componentDidMount() {
+        console.log("Added event listener");
+        this.props.socket.on('user-switch-turn', this.ReceiveMove);
+        this.props.socket.on('user-kill-piece', this.ReceiveKillMove);
+    }
 
     BackToMenu = () => { 
         console.log("Return"); 
@@ -69,7 +74,11 @@ class Checkers extends React.Component {
     state = initialState;
 
     CellClick = (cellInfo) => {
-        if(this.state.gameFinished) {
+        if(this.state.gameFinished || this.props.matchStarted === false) {
+            return;
+        }
+
+        if(this.state.turn != this.props.player) {
             return;
         }
 
@@ -127,10 +136,9 @@ class Checkers extends React.Component {
         })
 
         if(worldCell === undefined){
-            console.log("Failed convertion from local to global cords")
+            console.log("Failed convertion from local to global cords");
         }
 
-        console.log("from " + localCords);
         return worldCell;
     }
 
@@ -196,7 +204,7 @@ class Checkers extends React.Component {
         }
 
         //disable highlights and forced
-        highlightedCells.forEach(highlightedCell =>  highlightedCell.highlighted = false);
+        highlightedCells.forEach(highlightedCell => highlightedCell.highlighted = false);
         highlightedCells = [];
 
         hittableCells.forEach(hittableCell =>  hittableCell.forced = false);
@@ -204,7 +212,7 @@ class Checkers extends React.Component {
 
         cellsTohitFrom.forEach(fromCell => fromCell.canHit = false);
         cellsTohitFrom = [];
-        
+
         var killedCellCoords = [];
         if(Math.abs(cellInfo.cords[0] - lastSelectedCell.cords[0]) >= 2 || Math.abs(cellInfo.cords[1] - lastSelectedCell.cords[1]) >= 2) {
             killedSomeone = true;
@@ -239,9 +247,12 @@ class Checkers extends React.Component {
             if(cellInfo.king) {
                 this.DoHightlight(cellInfo.cords, cellInfo.usedBy === "P1" ? false : true, true, true, false);
             }
+
+            this.props.socket.emit("user-kill-piece", {turn: this.state.turn, board: this.state.board});
         } else{
             this.SwitchTurn();    
         }
+
     }
 
     SwitchTurn() {
@@ -256,8 +267,39 @@ class Checkers extends React.Component {
             }
         }
 
+        this.setState({
+            turn: currrentTurn,
+        })
+
+        this.props.socket.emit("user-switch-turn", {turn: currrentTurn, board: this.state.board});
+    }
+
+    ReceiveKillMove = (receivedData) => {
+        var currrentTurn = receivedData.turn;
+        var board = receivedData.board;
+
+        board.map(row => row.map((cell) => {
+            cell.highlighted = false;
+            cell.forced = false;
+            cell.canHit = false;
+        }));
+
+        this.setState({
+            turn: currrentTurn,
+            board: board,
+        })
+    }
+
+    ReceiveMove = (receivedData) => {
+        
+        var currrentTurn = receivedData.turn;
+        var board = receivedData.board;
+        tempBoard = receivedData.board;
+
+        console.log(receivedData);
+
         var tilesToCheck = [];
-        this.state.board.filter(function (col) {
+        board.filter(function (col) {
             col.filter(function (cell) {
                 if(cell.usedBy === currrentTurn){
                     tilesToCheck.push(cell);
@@ -266,6 +308,8 @@ class Checkers extends React.Component {
         })
 
         if(tilesToCheck.length === 0) {
+            var previousTurn = currrentTurn === "P1" ? "P2" : "P1";
+
             this.setState({
                 winner: previousTurn,
                 finished: true,
@@ -285,9 +329,9 @@ class Checkers extends React.Component {
 
         this.setState({
             turn: currrentTurn,
+            board: board,
         })
     }
-
 
     render() {
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const socketio = require('socket.io');
 const http = require('http');
+const cors = require('cors');
 
 const { addUser, createRoom, joinRoom, leaveRoom, getUser, removeUser, getUsersInRoom } = require('./users.js');
 
@@ -12,6 +13,11 @@ const app = express();
 const server = http.createServer(app);
 const io = socketio(server);
 
+app.use(cors());
+app.use(router);
+
+server.listen(PORT, () => console.log(`server has started on port ${PORT}`));
+
 io.on('connection', (socket) => {
     console.log("we have a new connection");
 
@@ -21,14 +27,21 @@ io.on('connection', (socket) => {
     });
 
     socket.on('user-create-room', (roomName) => {
-        var user = createRoom(socket.id, roomName);
-        socket.join(roomName);
+        var roomOwner = createRoom(socket.id, roomName);
+        if(roomOwner === false){
+            socket.emit('creating-failed', "Room already exists!");
+        } else{
+            socket.join(roomName);
+            socket.emit('user-created-room', {});
+        }
     });
 
     socket.on('user-join-room', ({name, roomName}) => {
         var roomOwners = getUsersInRoom(roomName);
-        if(roomOwners === undefined || roomOwners.length >= 2){
-            socket.emit('joining-failed', {});
+        if(roomOwners === undefined || roomOwners.length === 0){
+            socket.emit('joining-failed', "Room doesn't exist!");
+        } else if (roomOwners.length >= 2) {
+            socket.emit('joining-failed', "Room full!");
         } else {
             joinRoom(socket.id, roomName);
             socket.join(roomName);
@@ -49,8 +62,15 @@ io.on('connection', (socket) => {
             leaveRoom(getUsersInRoom(user.room)[0].id);
             socket.broadcast.to(user.room).emit('user-left', {});
         }
-    })
-})
+    });
 
-app.use(router);
-server.listen(PORT, () => console.log(`server has started on port ${PORT}`));
+    socket.on('user-switch-turn', ({turn, board}) => {
+        var user = getUser(socket.id);
+        socket.broadcast.to(user.room).emit('user-switch-turn', {turn, board});
+    });
+
+    socket.on('user-kill-piece', ({turn, board}) => {
+        var user = getUser(socket.id);
+        socket.broadcast.to(user.room).emit('user-kill-piece', {turn, board});
+    });
+});

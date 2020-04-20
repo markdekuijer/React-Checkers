@@ -14,8 +14,10 @@ const initialState = {
 }
 
 var name = "";
+var roomName = "";
 var opponentName = "";
 var isRoomHost = false;
+var matchStarted = false;
 
 const ENDPOINT = 'localhost:5000';
 
@@ -23,12 +25,12 @@ class App extends React.Component {
 
   state = initialState;
 
-  handleChangehandleChangeName = (e) => {
-    name = e.target.value;
+  handleChangeName = (e) => {
+	name = e.target.value;
   }
 
-  handleChangehandleRoom = (e) => {
-    name = e.target.value;
+  handleRoom = (e) => {
+    roomName = e.target.value;
   }
 
   enteredName = () => {
@@ -43,15 +45,11 @@ class App extends React.Component {
 	socket = io(ENDPOINT);
 	socket.emit('user-login', name);
 
-	socket.on('joining-failed', () => {console.log("Failed to join room "); });
-	socket.on('user-joined', (enemy) => {
-		console.log(enemy);
-		opponentName = enemy;
+	socket.on('user-created-room', this.createRoomSuccess);
+	socket.on('creating-failed', this.createRoomFailed);
 
-		this.setState({
-			step: "Playing",
-		})
-	});
+	socket.on('user-joined', this.joinRoomSuccess);
+	socket.on('joining-failed', this.joinRoomFailed);
 
 	socket.on('user-left', () => {
 		console.log('user left');
@@ -65,20 +63,58 @@ class App extends React.Component {
 	})
   }
 
-  joinRoom = () => {
+  requestJoinRoom = () => {
+	if(this.validateRoomName() === false){
+		console.log("Room name not valid");
+		return;
+	}
+
 	socket.emit('user-join-room', {
 		name: name,
-		roomName: "TestRoom"
+		roomName: roomName
 	});
   }
 
-  createRoom = () => {
-	socket.emit('user-create-room', "TestRoom");
-	isRoomHost = true;
+  joinRoomSuccess = (enemy) => {
+	opponentName = enemy;
+	matchStarted = true;
 
 	this.setState({
 		step: "Playing",
 	})
+  }
+
+  joinRoomFailed = (reason) => {
+	console.log(reason);
+  }
+
+  requestCreateRoom = () => {
+	if(this.validateRoomName() === false){
+		console.log("Room name not valid");
+		return;
+	}
+
+	socket.emit('user-create-room', roomName);
+  }
+
+  createRoomSuccess = (reason) => {
+		isRoomHost = true;
+
+		this.setState({
+			step: "Playing",
+		});
+	}
+
+  createRoomFailed = (reason) => {
+	console.log(reason);
+  }
+
+  validateRoomName = () => {
+	  if(roomName === undefined || roomName === ""){
+		  return false;
+	  }
+
+	  return true;
   }
 
   render() {
@@ -95,10 +131,10 @@ class App extends React.Component {
       UI = [
         <h1>Welcome {name}</h1>,
         <div style={{marginTop: '7%'}}>
-          <input placeholder="Enter room name..." onChange={ this.handleChangehandleRoom }></input>
+          <input placeholder="Enter room name..." onChange={ this.handleRoom }></input>
           <div>
-            <CenteredButton callback={this.createRoom} text="Create room"></CenteredButton>
-            <CenteredButton callback={this.joinRoom} text="Join room"></CenteredButton>
+            <CenteredButton callback={this.requestCreateRoom} text="Create room"></CenteredButton>
+            <CenteredButton callback={this.requestJoinRoom} text="Join room"></CenteredButton>
           </div>
       </div>
       ]
@@ -107,7 +143,7 @@ class App extends React.Component {
         <div className="container">
 			<Display dir="left" text={ isRoomHost ? name : opponentName }></Display>
 			<div className="boardContainer">
-				<Checkers/>
+				<Checkers matchStarted={matchStarted} player={isRoomHost ? "P1" : "P2"} socket={socket}/>
 			</div>
 			<Display dir="right" text={isRoomHost ? opponentName : name}></Display>
         </div>
