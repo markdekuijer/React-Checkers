@@ -3,12 +3,21 @@ import Checkers from './components/Checkers';
 import Display from './components/Display';
 import CenteredButton from './components/CenteredButton';
 
+//connection
+import io from 'socket.io-client';
+
+let socket;
+
 const initialState = {
   step: "Welcome",
   connected: false,
 }
 
-var name = "Mark";
+var name = "";
+var opponentName = "";
+var isRoomHost = false;
+
+const ENDPOINT = 'localhost:5000';
 
 class App extends React.Component {
 
@@ -29,19 +38,47 @@ class App extends React.Component {
 
     this.setState({
       step: "Searching",
-    })
+	})
+	
+	socket = io(ENDPOINT);
+	socket.emit('user-login', name);
+
+	socket.on('joining-failed', () => {console.log("Failed to join room "); });
+	socket.on('user-joined', (enemy) => {
+		console.log(enemy);
+		opponentName = enemy;
+
+		this.setState({
+			step: "Playing",
+		})
+	});
+
+	socket.on('user-left', () => {
+		console.log('user left');
+
+		opponentName = "";
+		isRoomHost = false;
+
+		this.setState({
+			step: "Searching",
+		})
+	})
   }
 
   joinRoom = () => {
-    this.setState({
-      step: "Joining",
-    })
+	socket.emit('user-join-room', {
+		name: name,
+		roomName: "TestRoom"
+	});
   }
 
   createRoom = () => {
-    this.setState({
-      step: "Playing",
-    })
+	socket.emit('user-create-room', "TestRoom");
+	isRoomHost = true;
+
+	this.setState({
+		step: "Playing",
+	})
   }
 
   render() {
@@ -68,11 +105,11 @@ class App extends React.Component {
     } else {
       UI = [
         <div className="container">
-          <Display dir="left" text="Player 1">Player 1</Display>
-          <div className="boardContainer">
-            <Checkers/>
-          </div>
-          <Display dir="right" text="Player 2">Player 2</Display>
+			<Display dir="left" text={ isRoomHost ? name : opponentName }></Display>
+			<div className="boardContainer">
+				<Checkers/>
+			</div>
+			<Display dir="right" text={isRoomHost ? opponentName : name}></Display>
         </div>
       ]
     }
