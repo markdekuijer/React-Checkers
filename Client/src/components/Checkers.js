@@ -16,7 +16,7 @@ const CreateBoard = () => {
                 highlighted: false,
                 forced: false,
                 canHit: false,
-                usedBy: (x % 2 !== 0 && y % 2 === 0) || (x % 2 === 0 && y % 2 !== 0) ? "" : (y < 1 && x < 4)? "P1" : (y > 8 && x < 4) ? "P2" : ""
+                usedBy: (x % 2 !== 0 && y % 2 === 0) || (x % 2 === 0 && y % 2 !== 0) ? "" : (y < 4) ? "P1" : (y > 5) ? "P2" : ""
             })
         }
         cols.push(row);

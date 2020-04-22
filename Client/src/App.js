@@ -21,78 +21,81 @@ var isRoomHost = false;
 var matchStarted = false;
 var currentTurn = "P1";
 
+var P1Rematch = false;
+var P2Rematch = false;
+
 const ENDPOINT = 'https://checkers-online-free-server.herokuapp.com/';
 
 class App extends React.Component {
 
-  state = initialState;
+  	state = initialState;
 
-  handleChangeName = (e) => {
-	name = e.target.value;
-  }
-
-  handleRoom = (e) => {
-    roomName = e.target.value;
-  }
-
-  enteredName = () => {
-    if(name === undefined || name === "") {
-      name = names[Math.floor(Math.random() * names.length)]
-    }
-
-	socket = io(ENDPOINT);
-
-	socket.on('reconnecting', () => {
-		connectionTries++;
-		if (connectionTries === 1) {
-			this.setState({
-				connectionError: "Unable to connect to server!"
-			});
-		}
-	});
-
-	socket.on('connect', () => {
-		connectionTries = 0;
-		this.setState({
-			step: "Searching",
-			connectionError: "",
-		});
-	});
-
-	socket.emit('user-login', name);
-
-	socket.on('user-created-room', this.createRoomSuccess);
-	socket.on('creating-failed', this.createRoomFailed);
-
-	socket.on('user-joined', this.joinRoomSuccess);
-	socket.on('joining-failed', this.joinRoomFailed);
-
-	socket.on('user-switch-turn', (receivedData) => {
-		currentTurn = receivedData.turn;
-		
-		this.setState({
-			currentTurn: currentTurn
-		});
-	});
-
-	socket.on('user-left', () => {
-		this.returnToMenu();
-	})
-  }
-
-  requestJoinRoom = () => {
-	if(this.validateRoomName() === false){
-		this.setState({
-			connectionError: "Please enter a valid room name",
-		});
-		return;
+	handleChangeName = (e) => {
+		name = e.target.value;
 	}
 
-	socket.emit('user-join-room', {
-		name: name,
-		roomName: roomName
-	});
-  }
+	handleRoom = (e) => {
+		roomName = e.target.value;
+	}
+
+	enteredName = () => {
+		if(name === undefined || name === "") {
+		name = names[Math.floor(Math.random() * names.length)]
+		}
+
+		socket = io(ENDPOINT);
+
+		socket.on('reconnecting', () => {
+			connectionTries++;
+			if (connectionTries === 1) {
+				this.setState({
+					connectionError: "Unable to connect to server!"
+				});
+			}
+		});
+
+		socket.on('connect', () => {
+			connectionTries = 0;
+			this.setState({
+				step: "Searching",
+				connectionError: "",
+			});
+		});
+
+		socket.emit('user-login', name);
+
+		socket.on('user-created-room', this.createRoomSuccess);
+		socket.on('creating-failed', this.createRoomFailed);
+
+		socket.on('user-joined', this.joinRoomSuccess);
+		socket.on('joining-failed', this.joinRoomFailed);
+
+		socket.on('user-switch-turn', (receivedData) => {
+			currentTurn = receivedData.turn;
+			
+			this.setState({
+				currentTurn: currentTurn
+			});
+		});
+
+		socket.on('user-left', () => {
+			this.returnToMenu();
+		})
+	}
+
+	requestJoinRoom = () => {
+		if(this.validateRoomName() === false){
+			this.setState({
+				connectionError: "Please enter a valid room name",
+			});
+			return;
+		}
+
+		socket.emit('user-join-room', {
+			name: name,
+			roomName: roomName
+		});
+	}
 
 	joinRoomSuccess = (enemy) => {
 		opponentName = enemy;
@@ -110,18 +113,18 @@ class App extends React.Component {
 		});
 	}
 
-  requestCreateRoom = () => {
-	if(this.validateRoomName() === false){
-		this.setState({
-			connectionError: "Please enter a valid room name",
-		});
-		return;
-	}
+  	requestCreateRoom = () => {
+		if(this.validateRoomName() === false){
+			this.setState({
+				connectionError: "Please enter a valid room name",
+			});
+			return;
+		}
 
-	socket.emit('user-create-room', roomName);
-  }
+		socket.emit('user-create-room', roomName);
+  	}
 
-  createRoomSuccess = (reason) => {
+  	createRoomSuccess = (reason) => {
 		isRoomHost = true;
 
 		this.setState({
@@ -130,40 +133,69 @@ class App extends React.Component {
 		});
 	}
 
-  createRoomFailed = (reason) => {
+	createRoomFailed = (reason) => {
 		this.setState({
 			connectionError: reason,
 		});
 	}
 
-  validateRoomName = () => {
-	  if(roomName === undefined || roomName === ""){
-		  return false;
-	  }
+	validateRoomName = () => {
+		if(roomName === undefined || roomName === ""){
+			return false;
+		}
 
-	  return true;
-  }
+		return true;
+	}
 
-  flipTurn = () => {
-	  if(currentTurn === "P1") {
-		  currentTurn = "P2";
-	  } else{
-		  currentTurn = "P1"
-	  }
+	flipTurn = () => {
+		if(currentTurn === "P1") {
+			currentTurn = "P2";
+		} else{
+			currentTurn = "P1"
+		}
 
-	  this.setState({
-		  currentTurn: currentTurn,
-	  });
-  }
+		this.setState({
+			currentTurn: currentTurn,
+		});
+	}
 
-  returnToMenu = () => {
-	opponentName = "";
-	isRoomHost = false;
+	returnToMenu = () => {
+		roomName = "";
+		opponentName = "";
+		isRoomHost = false;
+		matchStarted = false;
+		currentTurn = "P1";
 
-	this.setState({
-		step: "Searching",
-	})
-  }
+		P1Rematch = false;
+		P2Rematch = false;
+
+		this.setState({
+			step: "Searching",
+			finished: false,
+		})
+	}
+
+	retryClick = () => {
+		socket.emit("retryClick", isRoomHost);
+		if(isRoomHost) {
+			P1Rematch = true;
+		} else {
+			P2Rematch = true;
+		}
+	}
+
+	onRetryReceive = (otherIsHost) => { //not socket.on yet. also not made on server
+		if(otherIsHost) {
+			P2Rematch = true;
+		} else {
+			P1Rematch = true;
+		}
+
+		if(P1Rematch && P2Rematch) {
+			socket.emit("restartGame");
+			restartGame(); // doesnt exist yet
+		}
+	}
 
   render() {
 	var error;
@@ -208,15 +240,32 @@ class App extends React.Component {
 			}
 		}
 
+		var Rematch = <h2 style={{paddingTop: "75%"}}>Rematch</h2>
+
 		UI = [
 		<div>
 			<h2>{text}</h2>
 			<div className="container">
-				<Display dir="left" text={ isRoomHost ? name : opponentName }></Display>
-				<div className="boardContainer">
-					<Checkers returnCallback={this.returnToMenu} matchStarted={matchStarted} player={isRoomHost ? "P1" : "P2"} isHost={isRoomHost} name={name} opponentName={opponentName} socket={socket} flipTurnCallback={this.flipTurn}/>
+				<div style={{float: "left"}}>
+					<Display dir="left" text={ isRoomHost ? name : opponentName }></Display>
+					{(this.props.finished === true && P1Rematch === true) ? Rematch : ""};
 				</div>
-				<Display dir="right" text={isRoomHost ? opponentName : name}></Display>
+				<div className="boardContainer">
+					<Checkers 
+					returnCallback={this.returnToMenu} 
+					matchStarted={matchStarted} 
+					player={isRoomHost ? "P1" : "P2"} 
+					isHost={isRoomHost} name={name} 
+					opponentName={opponentName} 
+					socket={socket} 
+					flipTurnCallback={this.flipTurn}
+					retryCallback={this.retryClick}
+					/>
+				</div>
+				<div style={{float: "right"}}>
+					<Display dir="right" text={isRoomHost ? opponentName : name}></Display>
+					{(this.state.finished === true && P2Rematch === true) ? Rematch : ""};
+				</div>
 			</div>
 		</div>
       ]
