@@ -13,7 +13,6 @@ const addUser = (id, name) => {
 }
 
 const getUser = (id) => {
-    console.log(users);
     return users.find((user) => user.id === id);
 }
 
@@ -43,25 +42,19 @@ const createRoom = (id, roomName) => {
 }
 
 const joinRoom = (id, roomName) => {
-    console.log(users);
-    console.log(id);
     var user = users.find((user) => user.id === id);
     user.room = roomName;
-
-    console.log(users);
 
     return user;
 }
 
 const leaveRoom = (id) => {
-    console.log(`${id} needs to leave the room`);
-    console.log(users);
-    var user = users.find((user) => user.id === id)
-    user.room = "";
-
-    console.log(users);
-
-    return user;
+    var foundIndex = users.findIndex(x => x.id === id);
+    users[foundIndex].room = "";
 }
 
-module.exports = { addUser, createRoom, joinRoom, leaveRoom, getUser, removeUser, getUsersInRoom }
+const logUsers = () => {
+    console.log(users);
+}
+
+module.exports = { addUser, createRoom, joinRoom, leaveRoom, getUser, removeUser, getUsersInRoom, logUsers}

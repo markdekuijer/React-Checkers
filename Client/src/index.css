@@ -31,8 +31,13 @@ body {
 .container {
   text-align: center;
   width: 1300px;
+  max-height: 640px;
   margin-left: auto;
   margin-right: auto;
+}
+
+h2{
+  margin-bottom: 0px;
 }
 
 .boardContainer{
@@ -55,4 +60,9 @@ input{
 
   border-radius: 25px;
   border: 2px solid #609;
+}
+
+h4{
+  color: rgb(0, 0, 0);
+  margin: 2px;
 }

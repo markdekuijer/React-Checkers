@@ -16,7 +16,7 @@ const CreateBoard = () => {
                 highlighted: false,
                 forced: false,
                 canHit: false,
-                usedBy: (x % 2 !== 0 && y % 2 === 0) || (x % 2 === 0 && y % 2 !== 0) ? "" : y < 4 ? "P1" : y > 5 ? "P2" : ""
+                usedBy: (x % 2 !== 0 && y % 2 === 0) || (x % 2 === 0 && y % 2 !== 0) ? "" : (y < 1 && x < 4)? "P1" : (y > 8 && x < 4) ? "P2" : ""
             })
         }
         cols.push(row);
@@ -51,7 +51,8 @@ class Checkers extends React.Component {
     }
 
     BackToMenu = () => { 
-        console.log("Return"); 
+        this.props.socket.emit('user-left');
+        this.props.returnCallback();
     }
 
     RestartGame = () => { 
@@ -78,7 +79,7 @@ class Checkers extends React.Component {
             return;
         }
 
-        if(this.state.turn != this.props.player) {
+        if(this.state.turn !== this.props.player) {
             return;
         }
 
@@ -267,10 +268,34 @@ class Checkers extends React.Component {
             }
         }
 
+        var tilesToCheck = [];
+        this.state.board.filter(function (col) {
+            col.filter(function (cell) {
+                if(cell.usedBy === currrentTurn){
+                    tilesToCheck.push(cell);
+                }
+            })
+        })
+
+        if(tilesToCheck.length === 0) {
+            var winner;
+            if((previousTurn === "P1" && this.props.isHost) || (previousTurn === "P2" && this.props.isHost === false)){
+                winner = this.props.name;
+            } else {
+                winner = this.props.opponentName
+            }
+            
+            this.setState({
+                winner: winner,
+                finished: true,
+            });
+        }
+
         this.setState({
             turn: currrentTurn,
         })
 
+        this.props.flipTurnCallback();
         this.props.socket.emit("user-switch-turn", {turn: currrentTurn, board: this.state.board});
     }
 
@@ -309,13 +334,17 @@ class Checkers extends React.Component {
 
         if(tilesToCheck.length === 0) {
             var previousTurn = currrentTurn === "P1" ? "P2" : "P1";
+            var winner;
+            if((previousTurn === "P1" && this.props.isHost) || (previousTurn === "P2" && this.props.isHost === false)){
+                winner = this.props.name;
+            } else {
+                winner = this.props.opponentName
+            }
 
             this.setState({
-                winner: previousTurn,
+                winner: winner,
                 finished: true,
             });
-
-            console.log(previousTurn + "Won the game");
         }
 
         tilesToCheck.forEach(cell => {
@@ -350,9 +379,7 @@ class Checkers extends React.Component {
                     {this.state.board.map(row => row.map((cell, x) => <Cell key={x} onCellClick={this.CellClick} cellInfo={cell}/>))}
                 </StyledBoard> 
                 {gameOverUI}   
-
             </div>
-
         );
     }
 };

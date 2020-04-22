@@ -2,7 +2,7 @@ import styled from 'styled-components';
 
 export const StyledBoard = styled.div`
 align-items: flex-start;
-margin: 40px auto 0 auto;
+margin: 10px auto 0 auto;
 width: 600px;
 height: 600px;
 

@@ -3,7 +3,7 @@ const socketio = require('socket.io');
 const http = require('http');
 const cors = require('cors');
 
-const { addUser, createRoom, joinRoom, leaveRoom, getUser, removeUser, getUsersInRoom } = require('./users.js');
+const { addUser, createRoom, joinRoom, leaveRoom, getUser, removeUser, getUsersInRoom, logUsers } = require('./users.js');
 
 const PORT = process.env.PORT || 5000
 
@@ -55,12 +55,30 @@ io.on('connection', (socket) => {
         var user = removeUser(socket.id);
 
         if(user !== undefined){
-            console.log(`Disconnected ${user.name}`)
+            if(user.room !== "") {
+                socket.broadcast.to(user.room).emit('user-left', {});
+                var users = getUsersInRoom(user.room);
+                if(user !== undefined && users.length > 0){
+                    leaveRoom(users[0].id)
+                }
+            }
         }
         
-        if(user.room !== "") {
-            leaveRoom(getUsersInRoom(user.room)[0].id);
-            socket.broadcast.to(user.room).emit('user-left', {});
+    });
+
+    socket.on('user-left', () => {
+        logUsers();
+        var user = getUser(socket.id);
+        if(user !== undefined){
+            if(user.room !== "") {
+                var room = user.room;
+                leaveRoom(socket.id);
+                socket.broadcast.to(room).emit('user-left', {});
+                var users = getUsersInRoom(room);
+                if(user !== undefined && users.length > 0){
+                    leaveRoom(users[0].id)
+                }
+            }
         }
     });
 

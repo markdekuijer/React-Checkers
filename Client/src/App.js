@@ -7,6 +7,7 @@ import CenteredButton from './components/CenteredButton';
 import io from 'socket.io-client';
 
 let socket;
+var connectionTries = 0;
 
 const initialState = {
   step: "Welcome",
@@ -18,8 +19,9 @@ var roomName = "";
 var opponentName = "";
 var isRoomHost = false;
 var matchStarted = false;
+var currentTurn = "P1";
 
-const ENDPOINT = 'localhost:5000';
+const ENDPOINT = 'https://checkers-online-free-server.herokuapp.com/';
 
 class App extends React.Component {
 
@@ -38,11 +40,25 @@ class App extends React.Component {
       name = names[Math.floor(Math.random() * names.length)]
     }
 
-    this.setState({
-      step: "Searching",
-	})
-	
 	socket = io(ENDPOINT);
+
+	socket.on('reconnecting', () => {
+		connectionTries++;
+		if (connectionTries === 1) {
+			this.setState({
+				connectionError: "Unable to connect to server!"
+			});
+		}
+	});
+
+	socket.on('connect', () => {
+		connectionTries = 0;
+		this.setState({
+			step: "Searching",
+			connectionError: "",
+		});
+	});
+
 	socket.emit('user-login', name);
 
 	socket.on('user-created-room', this.createRoomSuccess);
@@ -51,21 +67,24 @@ class App extends React.Component {
 	socket.on('user-joined', this.joinRoomSuccess);
 	socket.on('joining-failed', this.joinRoomFailed);
 
-	socket.on('user-left', () => {
-		console.log('user left');
-
-		opponentName = "";
-		isRoomHost = false;
-
+	socket.on('user-switch-turn', (receivedData) => {
+		currentTurn = receivedData.turn;
+		
 		this.setState({
-			step: "Searching",
-		})
+			currentTurn: currentTurn
+		});
+	});
+
+	socket.on('user-left', () => {
+		this.returnToMenu();
 	})
   }
 
   requestJoinRoom = () => {
 	if(this.validateRoomName() === false){
-		console.log("Room name not valid");
+		this.setState({
+			connectionError: "Please enter a valid room name",
+		});
 		return;
 	}
 
@@ -75,22 +94,27 @@ class App extends React.Component {
 	});
   }
 
-  joinRoomSuccess = (enemy) => {
-	opponentName = enemy;
-	matchStarted = true;
+	joinRoomSuccess = (enemy) => {
+		opponentName = enemy;
+		matchStarted = true;
 
-	this.setState({
-		step: "Playing",
-	})
-  }
+		this.setState({
+			step: "Playing",
+			connectionError: "",
+		})
+	}
 
-  joinRoomFailed = (reason) => {
-	console.log(reason);
-  }
+	joinRoomFailed = (reason) => {
+		this.setState({
+			connectionError: reason,
+		});
+	}
 
   requestCreateRoom = () => {
 	if(this.validateRoomName() === false){
-		console.log("Room name not valid");
+		this.setState({
+			connectionError: "Please enter a valid room name",
+		});
 		return;
 	}
 
@@ -102,12 +126,15 @@ class App extends React.Component {
 
 		this.setState({
 			step: "Playing",
+			connectionError: "",
 		});
 	}
 
   createRoomFailed = (reason) => {
-	console.log(reason);
-  }
+		this.setState({
+			connectionError: reason,
+		});
+	}
 
   validateRoomName = () => {
 	  if(roomName === undefined || roomName === ""){
@@ -117,43 +144,87 @@ class App extends React.Component {
 	  return true;
   }
 
-  render() {
+  flipTurn = () => {
+	  if(currentTurn === "P1") {
+		  currentTurn = "P2";
+	  } else{
+		  currentTurn = "P1"
+	  }
 
+	  this.setState({
+		  currentTurn: currentTurn,
+	  });
+  }
+
+  returnToMenu = () => {
+	opponentName = "";
+	isRoomHost = false;
+
+	this.setState({
+		step: "Searching",
+	})
+  }
+
+  render() {
+	var error;
     var UI = "";
     if(this.state.step === "Welcome") {
-      UI = [
-        <div>
-          <input placeholder="Enter name..." onChange={ this.handleChangeName } style={{marginTop: '10%'}}></input>
-          <CenteredButton callback={this.enteredName} text="Confirm name"></CenteredButton>
-        </div>
-      ]
-    } else if (this.state.step === "Searching") {
-      UI = [
-        <h1>Welcome {name}</h1>,
-        <div style={{marginTop: '7%'}}>
-          <input placeholder="Enter room name..." onChange={ this.handleRoom }></input>
-          <div>
-            <CenteredButton callback={this.requestCreateRoom} text="Create room"></CenteredButton>
-            <CenteredButton callback={this.requestJoinRoom} text="Join room"></CenteredButton>
-          </div>
-      </div>
-      ]
-    } else {
-      UI = [
-        <div className="container">
-			<Display dir="left" text={ isRoomHost ? name : opponentName }></Display>
-			<div className="boardContainer">
-				<Checkers matchStarted={matchStarted} player={isRoomHost ? "P1" : "P2"} socket={socket}/>
+		if(this.state.connectionError !== undefined){
+			error = <h4>{this.state.connectionError}</h4>
+		}
+
+		UI = [
+			<div style={{marginTop: '10%'}}>
+				{error}
+				<input placeholder="Enter name..." onChange={ this.handleChangeName }></input>
+				<CenteredButton callback={this.enteredName} text="Confirm name"></CenteredButton>
 			</div>
-			<Display dir="right" text={isRoomHost ? opponentName : name}></Display>
-        </div>
+		]
+    } else if (this.state.step === "Searching") {
+		if(this.state.connectionError !== undefined){
+			error = <h4>{this.state.connectionError}</h4>
+		}
+
+		UI = [
+			<h1>Welcome {name}</h1>,
+			<div style={{marginTop: '7%'}}>
+				{error}
+				<input placeholder="Enter room name..." onChange={ this.handleRoom }></input>
+				<div>
+					<CenteredButton callback={this.requestCreateRoom} text="Create room"></CenteredButton>
+					<CenteredButton callback={this.requestJoinRoom} text="Join room"></CenteredButton>
+				</div>
+			</div>
+		]
+    } else {
+
+		var text = "Waiting for opponent  |  Room = " + roomName;
+		if(opponentName !== "") {
+			if((isRoomHost === true && currentTurn === "P1") || (isRoomHost === false && currentTurn === "P2")) {
+				text = name + "'s turn!";
+			}
+			else {
+				text = opponentName + "'s turn!";
+			}
+		}
+
+		UI = [
+		<div>
+			<h2>{text}</h2>
+			<div className="container">
+				<Display dir="left" text={ isRoomHost ? name : opponentName }></Display>
+				<div className="boardContainer">
+					<Checkers returnCallback={this.returnToMenu} matchStarted={matchStarted} player={isRoomHost ? "P1" : "P2"} isHost={isRoomHost} name={name} opponentName={opponentName} socket={socket} flipTurnCallback={this.flipTurn}/>
+				</div>
+				<Display dir="right" text={isRoomHost ? opponentName : name}></Display>
+			</div>
+		</div>
       ]
     }
 
     return (
       <div className="App">
         <div className="Title">Checkers Online</div>
-
         {UI}
       </div>
     );
